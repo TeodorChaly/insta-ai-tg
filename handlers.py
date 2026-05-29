@@ -37,6 +37,9 @@ from payments import buy_kb, credits_text
 
 router = Router()
 
+# пользователи, у которых прямо сейчас обрабатывается свайп — защита от двойного тапа
+_swipe_processing: set[int] = set()
+
 
 # ── Состояния ─────────────────────────────────────────────────────────────────
 
@@ -743,23 +746,29 @@ async def on_deep_confirm_yes(query: CallbackQuery, state: FSMContext, bot: Bot)
         await query.answer(t("deep_busy", lang), show_alert=True)
         return
 
-    if not storage.get_credits(tg_user) > 0:
+    data   = await state.get_data()
+    target = data.get("target")
+    if not target:
+        await query.answer("Session expired. Please /start again.", show_alert=True)
+        return
+    cfg    = data.get("filter", flt.DEFAULT_FILTER.copy())
+    count  = data.get("deep_count", 25)
+
+    # списываем 1 кредит ДО await — предотвращает двойное списание при двойном тапе
+    if not await storage.deduct_credit(tg_user):
         await query.message.edit_text(
-            credits_text(0, lang), parse_mode=ParseMode.HTML,
+            credits_text(storage.get_credits(tg_user), lang),
+            parse_mode=ParseMode.HTML,
             reply_markup=buy_kb(lang),
         )
         await query.answer()
         return
 
-    data   = await state.get_data()
-    target = data["target"]
-    cfg    = data.get("filter", flt.DEFAULT_FILTER.copy())
-    count  = data.get("deep_count", 25)
-
     target_country = ""
     if cfg.get("country") == "target":
         target_country = await instagram.fetch_user_country(target["user_id"])
         if not target_country:
+            await storage.add_credits(tg_user, 1)  # возвращаем кредит если страна не найдена
             await query.answer(t("deep_no_country_alert", lang), show_alert=True)
             return
 
@@ -781,9 +790,20 @@ async def on_deep_confirm_yes(query: CallbackQuery, state: FSMContext, bot: Bot)
     await query.answer()
 
     deep_search._sessions[tg_user] = sess  # register before task starts to prevent double-launch
-    asyncio.create_task(
+    task = asyncio.create_task(
         deep_search.run(sess, bot, query.message.chat.id, prog.message_id, state)
     )
+
+    def _on_task_done(t: asyncio.Task) -> None:
+        exc = t.exception() if not t.cancelled() else None
+        if exc:
+            import logging
+            logging.getLogger("deep_search").error(
+                f"[deep_search] user={tg_user} unhandled: {exc}", exc_info=exc
+            )
+        deep_search._sessions.pop(tg_user, None)  # safety cleanup
+
+    task.add_done_callback(_on_task_done)
 
 
 @router.callback_query(F.data == "deep_stop:ask")
@@ -817,17 +837,22 @@ async def on_limit(query: CallbackQuery, state: FSMContext, bot: Bot) -> None:
     limit  = int(query.data.split(":")[1])
     cost   = max(1, limit // 25)   # 25→1, 50→2, 100→4 …
 
-    # ── проверка кредитов ─────────────────────────────────────────────────────
-    if not storage.deduct_credit(tg_user, cost):
+    # ── сначала проверяем FSM (избегаем списания кредитов при stale-сессии) ────
+    data   = await state.get_data()
+    target = data.get("target")
+    mode   = data.get("mode")
+    if not target or not mode:
+        await query.answer("Session expired. Please /start again.", show_alert=True)
+        return
+
+    # ── проверка и списание кредитов ──────────────────────────────────────────
+    if not await storage.deduct_credit(tg_user, cost):
         await query.message.edit_text(
             credits_text(storage.get_credits(tg_user), lang),
             parse_mode=ParseMode.HTML,
             reply_markup=buy_kb(lang),
         )
         return
-    data   = await state.get_data()
-    target = data["target"]
-    mode   = data["mode"]
     cfg    = data.get("filter", flt.DEFAULT_FILTER.copy())
 
     await state.update_data(limit=limit, current_idx=0)
@@ -922,29 +947,45 @@ async def on_limit(query: CallbackQuery, state: FSMContext, bot: Bot) -> None:
 
 @router.callback_query(Scan.swiping, F.data.regexp(r"^(like|skip):\d+"))
 async def on_swipe(query: CallbackQuery, state: FSMContext, bot: Bot) -> None:
-    await query.answer()
-    action, idx_str = query.data.split(":")
-    idx     = int(idx_str)
-    chat_id = query.message.chat.id
+    tg_user = query.from_user.id
 
-    data     = await state.get_data()
-    profiles = data.get("profiles", [])
+    # защита от двойного тапа — если свайп уже обрабатывается, игнорируем
+    if tg_user in _swipe_processing:
+        await query.answer()
+        return
+    _swipe_processing.add(tg_user)
 
-    if idx < len(profiles):
-        u  = profiles[idx]
-        un = u.get("username", "")
-        if action == "like":
-            liked = data.get("liked", [])
-            if not any(x.get("username") == un for x in liked):
-                liked.append(u)
-                scan_likes = data.get("scan_likes", 0) + 1
-                await state.update_data(liked=liked, scan_likes=scan_likes)
-                storage.save_liked(query.from_user.id, liked)
+    try:
+        await query.answer()
+        action, idx_str = query.data.split(":")
+        idx     = int(idx_str)
+        chat_id = query.message.chat.id
 
-    await _delete_card(bot, chat_id, data)
-    next_idx = idx + 1
-    await state.update_data(current_idx=next_idx)
-    await _send_card(bot, chat_id, state, next_idx, user_id=query.from_user.id)
+        data     = await state.get_data()
+        profiles = data.get("profiles", [])
+
+        # проверяем что idx совпадает с текущим — защита от старых кнопок
+        current_idx = data.get("current_idx", 0)
+        if idx != current_idx:
+            return
+
+        if idx < len(profiles):
+            u  = profiles[idx]
+            un = u.get("username", "")
+            if action == "like":
+                liked = data.get("liked", [])
+                if not any(x.get("username") == un for x in liked):
+                    liked.append(u)
+                    scan_likes = data.get("scan_likes", 0) + 1
+                    await state.update_data(liked=liked, scan_likes=scan_likes)
+                    storage.save_liked(tg_user, liked)
+
+        await _delete_card(bot, chat_id, data)
+        next_idx = idx + 1
+        await state.update_data(current_idx=next_idx)
+        await _send_card(bot, chat_id, state, next_idx, user_id=tg_user)
+    finally:
+        _swipe_processing.discard(tg_user)
 
 
 @router.callback_query(F.data == "noop")
@@ -1087,16 +1128,19 @@ async def on_more_profiles(query: CallbackQuery, state: FSMContext, bot: Bot) ->
     tg_user  = query.from_user.id
     lang     = await _lang(state, tg_user)
     data     = await state.get_data()
-    target   = data["target"]
-    mode     = data["mode"]
-    limit    = data["limit"]
+    target   = data.get("target")
+    mode     = data.get("mode")
+    limit    = data.get("limit")
+    if not target or not mode or not limit:
+        await query.answer("Session expired. Please /start again.", show_alert=True)
+        return
     cfg      = data.get("filter", flt.DEFAULT_FILTER.copy())
     next_pid = data.get("next_page_id", "")
     chat_id  = query.message.chat.id
     cost     = max(1, limit // 25)   # 25→1, 50→2, 100→4 …
 
     # ── проверка кредитов ─────────────────────────────────────────────────────
-    if not storage.deduct_credit(tg_user, cost):
+    if not await storage.deduct_credit(tg_user, cost):
         await bot.send_message(
             chat_id,
             credits_text(storage.get_credits(tg_user), lang),

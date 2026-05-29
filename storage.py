@@ -4,6 +4,7 @@
  · data/users.json        — реестр всех пользователей (id, username, дата первого входа)
 """
 
+import asyncio
 import json
 import datetime
 import threading
@@ -16,6 +17,14 @@ DATA_DIR.mkdir(exist_ok=True)
 
 _USERS_FILE = Path(__file__).parent / "users.json"
 _lock = threading.Lock()
+
+# per-user asyncio lock — гарантирует атомарность read-modify-write для кредитов
+_credit_locks: dict[int, asyncio.Lock] = {}
+
+def _credit_lock(tg_user: int) -> asyncio.Lock:
+    if tg_user not in _credit_locks:
+        _credit_locks[tg_user] = asyncio.Lock()
+    return _credit_locks[tg_user]
 
 
 def _path(tg_user: int) -> Path:
@@ -140,24 +149,26 @@ def delete_user(tg_user: int) -> None:
     })
 
 
-def add_credits(tg_user: int, amount: int) -> int:
-    data = load(tg_user)
-    data["credits"] = data.get("credits", FREE_CREDITS) + amount
-    _save(tg_user, data)
-    _update_users_file(tg_user, {"credits": data["credits"]})
-    return data["credits"]
+async def add_credits(tg_user: int, amount: int) -> int:
+    async with _credit_lock(tg_user):
+        data = load(tg_user)
+        data["credits"] = data.get("credits", FREE_CREDITS) + amount
+        _save(tg_user, data)
+        _update_users_file(tg_user, {"credits": data["credits"]})
+        return data["credits"]
 
 
-def deduct_credit(tg_user: int, n: int = 1) -> bool:
-    """Списывает n кредитов. Возвращает False если баланс меньше n."""
-    data = load(tg_user)
-    current = data.get("credits", FREE_CREDITS)
-    if current < n:
-        return False
-    data["credits"] = current - n
-    _save(tg_user, data)
-    _update_users_file(tg_user, {"credits": data["credits"]})
-    return True
+async def deduct_credit(tg_user: int, n: int = 1) -> bool:
+    """Списывает n кредитов атомарно. Возвращает False если баланс меньше n."""
+    async with _credit_lock(tg_user):
+        data = load(tg_user)
+        current = data.get("credits", FREE_CREDITS)
+        if current < n:
+            return False
+        data["credits"] = current - n
+        _save(tg_user, data)
+        _update_users_file(tg_user, {"credits": data["credits"]})
+        return True
 
 
 # ── Реестр пользователей ──────────────────────────────────────────────────────

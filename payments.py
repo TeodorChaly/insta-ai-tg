@@ -117,7 +117,7 @@ async def on_successful_payment(msg: Message) -> None:
     except Exception:
         pass
 
-    new_balance = storage.add_credits(msg.from_user.id, pkg["credits"])
+    new_balance = await storage.add_credits(msg.from_user.id, pkg["credits"])
     lang = storage.get_lang(msg.from_user.id)
     await msg.answer(
         t("payment_success", lang,

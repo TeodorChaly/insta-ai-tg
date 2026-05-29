@@ -146,10 +146,10 @@
   "btn_edit_minphotos": "✏️ Мин. фото",
   "btn_edit_maxfollowers": "✏️ Макс. подписч.",
 
-  "btn_mode_following": "📲  Подписки (Рекомендуем)",
+  "btn_mode_following": "📲  Подписки",
   "btn_mode_followers": "👥  Подписчики",
   "btn_mode_suggested": "✨  Suggested",
-  "btn_mode_deep": "🤖  Deep Search  (Бета)",
+  "btn_mode_deep": "🤖  Automated Search  🔥",
 
   "deep_count_prompt": "🤖 <b>Deep Search</b>\n\nСколько подходящих профилей найти?",
   "deep_confirm_text": "🤖 <b>Deep Search — {count} профилей</b>\n\n<i>Бот будет сканировать списки подписок непрерывно пока не найдёт <b>{count}</b> профилей по твоему фильтру.\n\nСтоимость: 1 кредит за каждые 25 просканированных профилей (макс. {max_credits} кредитов).\nЦена зависит от времени поиска.</i>\n\nНачать?",

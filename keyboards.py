@@ -176,10 +176,10 @@ def settings_option_kb(param: str, lang: str = "en") -> InlineKeyboardMarkup:
 
 def mode_kb(lang: str = "en") -> InlineKeyboardMarkup:
     b = InlineKeyboardBuilder()
+    b.button(text=t("btn_mode_deep",      lang), callback_data="mode:deep")
     b.button(text=t("btn_mode_following", lang), callback_data="mode:following")
     b.button(text=t("btn_mode_followers", lang), callback_data="mode:followers")
     b.button(text=t("btn_mode_suggested", lang), callback_data="mode:suggested")
-    b.button(text=t("btn_mode_deep",      lang), callback_data="mode:deep")
     b.adjust(1)
     return b.as_markup()
 

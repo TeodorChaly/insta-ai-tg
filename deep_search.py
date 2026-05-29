@@ -93,10 +93,34 @@ async def run(
     """Background task. Runs deep search, then triggers card swiping."""
     from i18n import t
     import keyboards as kb
+    import logging
+    _log = logging.getLogger("deep_search")
 
     _sessions[sess.tg_user] = sess
     sess.hiker_calls_start  = hiker_log.total
     sess.openai_calls_start = openai_log.total
+
+    try:
+        await _run_inner(sess, bot, chat_id, progress_msg_id, state, t, kb)
+    except Exception as exc:
+        _log.error(f"[deep_search] user={sess.tg_user} crashed: {exc}", exc_info=True)
+        try:
+            await bot.send_message(chat_id, f"❌ Search stopped due to an error.")
+        except Exception:
+            pass
+    finally:
+        _sessions.pop(sess.tg_user, None)
+
+
+async def _run_inner(
+    sess: DeepSession,
+    bot: Bot,
+    chat_id: int,
+    progress_msg_id: int,
+    state: FSMContext,
+    t,
+    kb,
+) -> None:
 
     sep = "═" * 72
     sess.log_lines += [
@@ -115,8 +139,8 @@ async def run(
     sess.queue.append({"user_id": sess.target_uid, "username": sess.target_username})
     sess.queue_uids.add(sess.target_uid)
 
-    api_sem = asyncio.Semaphore(config.API_SEM)
-    gpt_sem = asyncio.Semaphore(config.GPT_SEM)
+    api_sem = config.API_SEM  # глобальный семафор — общий для всех пользователей
+    gpt_sem = config.GPT_SEM
 
     _last_update = [0.0]
 
@@ -176,7 +200,7 @@ async def run(
             cur_uname = current.get("username", cur_uid)
             queue_idx += 1
 
-            if not storage.deduct_credit(sess.tg_user):
+            if not await storage.deduct_credit(sess.tg_user):
                 sess.stop_reason = "no_credits"
                 break
             sess.credits_used += 1
@@ -288,9 +312,6 @@ async def run(
         openai=openai_used,
         profiles=sess.profiles_scanned,
     )
-
-    if sess.tg_user in _sessions:
-        del _sessions[sess.tg_user]
 
     try:
         await bot.delete_message(chat_id, progress_msg_id)

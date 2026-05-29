@@ -146,10 +146,10 @@
   "btn_edit_minphotos": "✏️ Min. photos",
   "btn_edit_maxfollowers": "✏️ Max. followers",
 
-  "btn_mode_following": "📲  Following (Recommended)",
+  "btn_mode_following": "📲  Following",
   "btn_mode_followers": "👥  Followers",
   "btn_mode_suggested": "✨  Suggested",
-  "btn_mode_deep": "🤖  Deep Search  (Beta)",
+  "btn_mode_deep": "🤖  Automated Search  🔥",
 
   "deep_count_prompt": "🤖 <b>Deep Search</b>\n\nHow many matching profiles do you want to find?",
   "deep_confirm_text": "🤖 <b>Deep Search — {count} profiles</b>\n\n<i>The bot will scan following lists non-stop until it finds <b>{count}</b> profiles matching your filter.\n\nCost: 1 credit per 25 profiles scanned (max {max_credits} credits).\nPrice depends on how long the search takes.</i>\n\nStart?",

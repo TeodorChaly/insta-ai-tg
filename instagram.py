@@ -308,8 +308,8 @@ async def elite_scan(
 ) -> tuple[list[dict], str]:
     users_raw, next_pid = await fetch_base_list(user_id, mode, limit, page_id)
 
-    api_sem = asyncio.Semaphore(config.API_SEM)
-    gpt_sem = asyncio.Semaphore(config.GPT_SEM)
+    api_sem = config.API_SEM  # глобальный семафор — общий для всех пользователей
+    gpt_sem = config.GPT_SEM
     done    = [0]
     total   = len(users_raw)
 
