@@ -32,11 +32,19 @@ def extract_username(raw: str) -> str:
 async def download_bytes(http: httpx.AsyncClient, url: str) -> bytes | None:
     if not url:
         return None
-    try:
-        r = await http.get(url, follow_redirects=True, timeout=8)
-        return r.content if r.status_code == 200 else None
-    except Exception:
-        return None
+    for attempt in range(3):
+        try:
+            r = await http.get(url, follow_redirects=True, timeout=12)
+            if r.status_code == 200:
+                return r.content
+            # CDN вернул ошибку — возможно ссылка протухла, нет смысла ретраить
+            if r.status_code in (403, 404, 410):
+                return None
+        except Exception:
+            pass
+        if attempt < 2:
+            await asyncio.sleep(1)
+    return None
 
 
 # ── Resolve профиля ───────────────────────────────────────────────────────────
@@ -209,6 +217,7 @@ async def fetch_elite_profile(
     # ── шаг 5: url аватара ────────────────────────────────────────────────────
     hd_info = profile.get("hd_profile_pic_url_info") or {}
     pic_url = (hd_info.get("url") if isinstance(hd_info, dict) else "") or \
+              profile.get("profile_pic_url_hd") or profile.get("profile_pic_url") or \
               base_info.get("profile_pic_url_hd") or base_info.get("profile_pic_url") or ""
 
     # ── шаг 6: параллельная загрузка изображений ─────────────────────────────

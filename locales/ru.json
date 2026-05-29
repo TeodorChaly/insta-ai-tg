@@ -148,5 +148,22 @@
 
   "btn_mode_following": "📲  Подписки (Рекомендуем)",
   "btn_mode_followers": "👥  Подписчики",
-  "btn_mode_suggested": "✨  Suggested"
+  "btn_mode_suggested": "✨  Suggested",
+  "btn_mode_deep": "🤖  Deep Search  (Бета)",
+
+  "deep_count_prompt": "🤖 <b>Deep Search</b>\n\nСколько подходящих профилей найти?",
+  "deep_confirm_text": "🤖 <b>Deep Search — {count} профилей</b>\n\n<i>Бот будет сканировать списки подписок непрерывно пока не найдёт <b>{count}</b> профилей по твоему фильтру.\n\nСтоимость: 1 кредит за каждые 25 просканированных профилей (макс. {max_credits} кредитов).\nЦена зависит от времени поиска.</i>\n\nНачать?",
+  "deep_yes": "✅  Начать",
+  "deep_no": "← Назад",
+  "deep_no_country_alert": "⚠️ У целевого профиля не указана страна. Выберите профиль из вашей страны.",
+  "deep_running": "🔍 <b>Deep Search запущен</b>\n\nЦель: <b>@{target}</b>\nИщем: <b>{count}</b> профилей\n\nЭто может занять несколько минут…",
+  "deep_progress": "🔍 <b>Deep Search…</b>\n\nНайдено: <b>{found} / {target}</b>\nПросканировано: {scanned} профилей\nКредитов потрачено: {credits}",
+  "deep_stop_btn": "⏹  Остановить поиск",
+  "deep_stop_yes": "⏹  Да, остановить",
+  "deep_stop_no": "← Продолжить",
+  "deep_done": "✅ <b>Deep Search завершён!</b>\n\nНайдено: <b>{found}</b> профилей\n· {match} со страной\n· {no_country} без страны\n\nПотрачено кредитов: <b>{credits}</b>  ·  Просканировано: {scanned}\n\nЛистай карточки:",
+  "deep_credits_partial": "⚠️ Кредиты закончились — поиск остановлен.\nПоказываю {found} найденных профилей.",
+  "deep_not_found": "❌ Подходящих профилей не найдено. Все списки подписок исчерпаны.\nКредитов потрачено: {credits}",
+  "deep_credits_empty": "❌ Недостаточно кредитов для Deep Search.\nКредитов потрачено: {credits}",
+  "deep_busy": "⏳ Deep Search уже запущен. Дождитесь окончания или остановите."
 }

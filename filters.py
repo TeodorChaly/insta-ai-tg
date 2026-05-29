@@ -84,18 +84,21 @@ def apply(
                 elif gender != "any" and detected_gender != gender:
                     stats["gender"] += 1
                     reject = f"wrong gender ({detected_gender})"
-                elif country == "target" and target_country:
+
+                if not reject and country == "target" and target_country:
                     u_c = (u.get("country") or "").strip().lower()
                     t_c = target_country.strip().lower()
                     if u_c and u_c != t_c:
                         stats["country"] += 1
                         reject = f"different country ({u.get('country')})"
-                elif min_photos > 0:
+
+                if not reject and min_photos > 0:
                     all_p = [p for p in ([u.get("_pic")] + (u.get("_photos") or [])) if p]
                     if len(all_p) < min_photos:
                         stats["photos"] += 1
                         reject = f"not enough photos ({len(all_p)})"
-                else:
+
+                if not reject:
                     fc = u.get("follower_count")
                     if fc is not None and fc > max_followers:
                         stats["followers"] += 1

@@ -37,3 +37,5 @@ Thumbs.db
 
 # Claude Code
 .claude/
+
+.users.json

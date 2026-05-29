@@ -148,5 +148,22 @@
 
   "btn_mode_following": "📲  Folgt (Empfohlen)",
   "btn_mode_followers": "👥  Follower",
-  "btn_mode_suggested": "✨  Suggested"
+  "btn_mode_suggested": "✨  Suggested",
+  "btn_mode_deep": "🤖  Deep Search  (Beta)",
+
+  "deep_count_prompt": "🤖 <b>Deep Search</b>\n\nWie viele passende Profile möchtest du finden?",
+  "deep_confirm_text": "🤖 <b>Deep Search — {count} Profile</b>\n\n<i>Der Bot scannt Following-Listen kontinuierlich bis er <b>{count}</b> Profile findet die deinem Filter entsprechen.\n\nKosten: 1 Credit pro 25 gescannte Profile (max. {max_credits} Credits).\nPreis hängt von der Suchdauer ab.</i>\n\nStarten?",
+  "deep_yes": "✅  Starten",
+  "deep_no": "← Zurück",
+  "deep_no_country_alert": "⚠️ Zielprofil hat kein Land angegeben. Wähle ein Profil aus deinem Land.",
+  "deep_running": "🔍 <b>Deep Search gestartet</b>\n\nZiel: <b>@{target}</b>\nSuche: <b>{count}</b> Profile\n\nDies kann einige Minuten dauern…",
+  "deep_progress": "🔍 <b>Deep Search…</b>\n\nGefunden: <b>{found} / {target}</b>\nGescannt: {scanned} Profile\nCredits verbraucht: {credits}",
+  "deep_stop_btn": "⏹  Suche stoppen",
+  "deep_stop_yes": "⏹  Ja, stoppen",
+  "deep_stop_no": "← Weiter",
+  "deep_done": "✅ <b>Deep Search abgeschlossen!</b>\n\nGefunden: <b>{found}</b> Profile\n· {match} mit Land\n· {no_country} ohne Land\n\nCredits verbraucht: <b>{credits}</b>  ·  Gescannt: {scanned}\n\nKarten durchsehen:",
+  "deep_credits_partial": "⚠️ Credits aufgebraucht — Suche vorzeitig gestoppt.\nZeige {found} bisher gefundene Profile.",
+  "deep_not_found": "❌ Keine passenden Profile gefunden. Alle Following-Listen erschöpft.\nCredits verbraucht: {credits}",
+  "deep_credits_empty": "❌ Nicht genug Credits für Deep Search.\nCredits verbraucht: {credits}",
+  "deep_busy": "⏳ Deep Search läuft bereits. Warte bis er fertig ist oder stoppe ihn."
 }

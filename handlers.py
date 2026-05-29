@@ -7,6 +7,7 @@ FSM-состояния и все aiogram-хендлеры.
 /settings и пагинация /liked работают из любого состояния.
 """
 
+import asyncio
 import time
 import json
 import base64
@@ -29,6 +30,7 @@ import instagram
 import storage
 import vision
 import keyboards as kb
+import deep_search
 from i18n import t
 from logger import scan_context, hiker_log, openai_log, summary_log
 from payments import buy_kb, credits_text
@@ -52,6 +54,11 @@ class Scan(StatesGroup):
     mode     = State()
     limit    = State()
     swiping  = State()
+
+
+class DeepSearch(StatesGroup):
+    count   = State()
+    confirm = State()
 
 
 # ── Вспомогательные функции ───────────────────────────────────────────────────
@@ -599,6 +606,10 @@ async def cmd_credits(msg: Message, state: FSMContext) -> None:
 )
 async def on_direct_url(msg: Message, state: FSMContext) -> None:
     tg_user  = msg.from_user.id
+    if deep_search.is_running(tg_user):
+        lang = await _lang(state, tg_user)
+        await msg.answer(t("deep_busy", lang))
+        return
     if not await _check_terms(msg, state, tg_user):
         return
     lang     = await _lang(state, tg_user)
@@ -668,12 +679,130 @@ async def on_mode(query: CallbackQuery, state: FSMContext) -> None:
     mode = query.data.split(":")[1]
     lang = await _lang(state, query.from_user.id)
     await state.update_data(mode=mode)
-    await state.set_state(Scan.limit)
 
+    if mode == "deep":
+        await state.set_state(DeepSearch.count)
+        await query.message.edit_text(
+            t("deep_count_prompt", lang),
+            reply_markup=kb.deep_count_kb(),
+        )
+        await query.answer()
+        return
+
+    await state.set_state(Scan.limit)
     await query.message.edit_text(
         t("mode_confirmed", lang, mode=t(f"mode_{mode}", lang)),
         reply_markup=kb.limit_kb(),
     )
+    await query.answer()
+
+
+@router.callback_query(DeepSearch.count, F.data.startswith("deep_count:"))
+async def on_deep_count(query: CallbackQuery, state: FSMContext) -> None:
+    lang  = await _lang(state, query.from_user.id)
+    count = int(query.data.split(":")[1])
+    await state.update_data(deep_count=count)
+    await state.set_state(DeepSearch.confirm)
+    await query.message.edit_text(
+        t("deep_confirm_text", lang, count=count, max_credits=deep_search.MAX_CREDITS),
+        reply_markup=kb.deep_confirm_kb(lang),
+        parse_mode=ParseMode.HTML,
+    )
+    await query.answer()
+
+
+@router.callback_query(DeepSearch.confirm, F.data == "deep_confirm:no")
+async def on_deep_confirm_no(query: CallbackQuery, state: FSMContext) -> None:
+    lang = await _lang(state, query.from_user.id)
+    data = await state.get_data()
+    info = data.get("target", {})
+    await state.set_state(Scan.mode)
+    priv = t("privacy_private", lang) if info.get("is_private") else t("privacy_public", lang)
+    fn   = f"  —  {info['full_name']}" if info.get("full_name") else ""
+    await query.message.edit_text(
+        t("user_found", lang,
+          username=info.get("username", ""),
+          fullname=fn,
+          followers=kb._fmt(info.get("followers")),
+          following=kb._fmt(info.get("following")),
+          privacy=priv),
+        reply_markup=kb.mode_kb(lang),
+        parse_mode=ParseMode.HTML,
+    )
+    await query.answer()
+
+
+@router.callback_query(DeepSearch.confirm, F.data == "deep_confirm:yes")
+async def on_deep_confirm_yes(query: CallbackQuery, state: FSMContext, bot: Bot) -> None:
+    tg_user = query.from_user.id
+    if not await _check_terms(query, state, tg_user):
+        return
+    lang = await _lang(state, tg_user)
+
+    if deep_search.is_running(tg_user):
+        await query.answer(t("deep_busy", lang), show_alert=True)
+        return
+
+    if not storage.get_credits(tg_user) > 0:
+        await query.message.edit_text(
+            credits_text(0, lang), parse_mode=ParseMode.HTML,
+            reply_markup=buy_kb(lang),
+        )
+        await query.answer()
+        return
+
+    data   = await state.get_data()
+    target = data["target"]
+    cfg    = data.get("filter", flt.DEFAULT_FILTER.copy())
+    count  = data.get("deep_count", 25)
+
+    target_country = ""
+    if cfg.get("country") == "target":
+        target_country = await instagram.fetch_user_country(target["user_id"])
+        if not target_country:
+            await query.answer(t("deep_no_country_alert", lang), show_alert=True)
+            return
+
+    sess = deep_search.DeepSession(
+        tg_user=tg_user,
+        target_uid=target["user_id"],
+        target_username=target["username"],
+        target_count=count,
+        user_filter=cfg,
+        lang=lang,
+        target_country=target_country,
+    )
+
+    prog = await query.message.edit_text(
+        t("deep_running", lang, count=count, target=target["username"]),
+        reply_markup=kb.deep_stop_kb(lang),
+        parse_mode=ParseMode.HTML,
+    )
+    await query.answer()
+
+    deep_search._sessions[tg_user] = sess  # register before task starts to prevent double-launch
+    asyncio.create_task(
+        deep_search.run(sess, bot, query.message.chat.id, prog.message_id, state)
+    )
+
+
+@router.callback_query(F.data == "deep_stop:ask")
+async def on_deep_stop_ask(query: CallbackQuery, state: FSMContext) -> None:
+    lang = await _lang(state, query.from_user.id)
+    await query.message.edit_reply_markup(reply_markup=kb.deep_stop_confirm_kb(lang))
+    await query.answer()
+
+
+@router.callback_query(F.data == "deep_stop:cancel")
+async def on_deep_stop_cancel(query: CallbackQuery, state: FSMContext) -> None:
+    lang = await _lang(state, query.from_user.id)
+    await query.message.edit_reply_markup(reply_markup=kb.deep_stop_kb(lang))
+    await query.answer()
+
+
+@router.callback_query(F.data == "deep_stop:confirm")
+async def on_deep_stop_confirm(query: CallbackQuery) -> None:
+    deep_search.stop_session(query.from_user.id)
     await query.answer()
 
 
@@ -685,16 +814,17 @@ async def on_limit(query: CallbackQuery, state: FSMContext, bot: Bot) -> None:
         return
     lang    = await _lang(state, tg_user)
 
+    limit  = int(query.data.split(":")[1])
+    cost   = max(1, limit // 25)   # 25→1, 50→2, 100→4 …
+
     # ── проверка кредитов ─────────────────────────────────────────────────────
-    if not storage.deduct_credit(tg_user):
+    if not storage.deduct_credit(tg_user, cost):
         await query.message.edit_text(
-            credits_text(0, lang),
+            credits_text(storage.get_credits(tg_user), lang),
             parse_mode=ParseMode.HTML,
             reply_markup=buy_kb(lang),
         )
         return
-
-    limit  = int(query.data.split(":")[1])
     data   = await state.get_data()
     target = data["target"]
     mode   = data["mode"]
@@ -963,12 +1093,13 @@ async def on_more_profiles(query: CallbackQuery, state: FSMContext, bot: Bot) ->
     cfg      = data.get("filter", flt.DEFAULT_FILTER.copy())
     next_pid = data.get("next_page_id", "")
     chat_id  = query.message.chat.id
+    cost     = max(1, limit // 25)   # 25→1, 50→2, 100→4 …
 
     # ── проверка кредитов ─────────────────────────────────────────────────────
-    if not storage.deduct_credit(tg_user):
+    if not storage.deduct_credit(tg_user, cost):
         await bot.send_message(
             chat_id,
-            credits_text(0, lang),
+            credits_text(storage.get_credits(tg_user), lang),
             parse_mode=ParseMode.HTML,
             reply_markup=buy_kb(lang),
         )

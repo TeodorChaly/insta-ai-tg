@@ -179,7 +179,39 @@ def mode_kb(lang: str = "en") -> InlineKeyboardMarkup:
     b.button(text=t("btn_mode_following", lang), callback_data="mode:following")
     b.button(text=t("btn_mode_followers", lang), callback_data="mode:followers")
     b.button(text=t("btn_mode_suggested", lang), callback_data="mode:suggested")
+    b.button(text=t("btn_mode_deep",      lang), callback_data="mode:deep")
     b.adjust(1)
+    return b.as_markup()
+
+
+def deep_count_kb() -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text="25", callback_data="deep_count:25")
+    b.button(text="50", callback_data="deep_count:50")
+    b.adjust(2)
+    return b.as_markup()
+
+
+def deep_confirm_kb(lang: str = "en") -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text=t("deep_yes", lang), callback_data="deep_confirm:yes")
+    b.button(text=t("deep_no",  lang), callback_data="deep_confirm:no")
+    b.adjust(2)
+    return b.as_markup()
+
+
+def deep_stop_kb(lang: str = "en") -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text=t("deep_stop_btn", lang), callback_data="deep_stop:ask")
+    b.adjust(1)
+    return b.as_markup()
+
+
+def deep_stop_confirm_kb(lang: str = "en") -> InlineKeyboardMarkup:
+    b = InlineKeyboardBuilder()
+    b.button(text=t("deep_stop_yes", lang), callback_data="deep_stop:confirm")
+    b.button(text=t("deep_stop_no",  lang), callback_data="deep_stop:cancel")
+    b.adjust(2)
     return b.as_markup()
 
 

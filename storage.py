@@ -74,6 +74,8 @@ def save_filter(tg_user: int, cfg: dict) -> None:
     _save(tg_user, data)
 
 
+
+
 def save_liked(tg_user: int, liked: list[dict]) -> None:
     # _pic/_photos — байты, в JSON не сериализуются, для /liked не нужны
     clean = [{k: v for k, v in u.items() if k not in ("_pic", "_photos")} for u in liked]
@@ -146,13 +148,13 @@ def add_credits(tg_user: int, amount: int) -> int:
     return data["credits"]
 
 
-def deduct_credit(tg_user: int) -> bool:
-    """Списывает 1 кредит. Возвращает False если баланс нулевой."""
+def deduct_credit(tg_user: int, n: int = 1) -> bool:
+    """Списывает n кредитов. Возвращает False если баланс меньше n."""
     data = load(tg_user)
     current = data.get("credits", FREE_CREDITS)
-    if current <= 0:
+    if current < n:
         return False
-    data["credits"] = current - 1
+    data["credits"] = current - n
     _save(tg_user, data)
     _update_users_file(tg_user, {"credits": data["credits"]})
     return True
