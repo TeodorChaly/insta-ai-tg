@@ -1,0 +1,39 @@
+# Secrets
+.env
+
+# User data (personal information)
+data/
+users.json
+
+# Logs & debug output
+logs/
+debug/
+*.log
+last_links.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+
+# Virtual environment
+venv/
+env/
+.venv/
+
+# Backups
+*.bak
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Claude Code
+.claude/
