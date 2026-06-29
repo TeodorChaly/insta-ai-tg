@@ -809,20 +809,38 @@ async def on_deep_confirm_yes(query: CallbackQuery, state: FSMContext, bot: Bot)
 @router.callback_query(F.data == "deep_stop:ask")
 async def on_deep_stop_ask(query: CallbackQuery, state: FSMContext) -> None:
     lang = await _lang(state, query.from_user.id)
-    await query.message.edit_reply_markup(reply_markup=kb.deep_stop_confirm_kb(lang))
+    await query.message.edit_text(
+        t("deep_stop_confirm_text", lang),
+        parse_mode=ParseMode.HTML,
+        reply_markup=kb.deep_stop_confirm_kb(lang),
+    )
     await query.answer()
 
 
 @router.callback_query(F.data == "deep_stop:cancel")
 async def on_deep_stop_cancel(query: CallbackQuery, state: FSMContext) -> None:
     lang = await _lang(state, query.from_user.id)
-    await query.message.edit_reply_markup(reply_markup=kb.deep_stop_kb(lang))
+    data = await state.get_data()
+    target = data.get("target", {})
+    count  = data.get("deep_count", 0)
+    await query.message.edit_text(
+        t("deep_running", lang, target=target.get("username", ""), count=count),
+        parse_mode=ParseMode.HTML,
+        reply_markup=kb.deep_stop_kb(lang),
+    )
     await query.answer()
 
 
 @router.callback_query(F.data == "deep_stop:confirm")
-async def on_deep_stop_confirm(query: CallbackQuery) -> None:
-    deep_search.stop_session(query.from_user.id)
+async def on_deep_stop_confirm(query: CallbackQuery, state: FSMContext) -> None:
+    import asyncio
+    lang = await _lang(state, query.from_user.id)
+    deep_search.stop_session(query.from_user.id)  # сначала поднимаем флаг — _update_progress остановится
+    await asyncio.sleep(0.3)                       # даём времы текущему _update_progress завершиться
+    try:
+        await query.message.edit_text(t("deep_stopping", lang), parse_mode=ParseMode.HTML)
+    except Exception:
+        pass
     await query.answer()
 
 

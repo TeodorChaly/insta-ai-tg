@@ -14,6 +14,7 @@ from aiogram.types import BotCommand
 import config
 from handlers import router as main_router
 from payments import router as pay_router
+from admin import router as admin_router
 
 _COMMANDS = {
     "en": [
@@ -57,15 +58,28 @@ async def main() -> None:
         default=DefaultBotProperties(parse_mode=ParseMode.HTML),
     )
 
-    from aiogram.types import BotCommandScopeDefault
+    from aiogram.types import BotCommandScopeDefault, BotCommandScopeChat
     for lang_code, cmds in _COMMANDS.items():
         await bot.set_my_commands(cmds, language_code=lang_code)
-    # дефолтный набор (для остальных языков) — английский
     await bot.set_my_commands(_COMMANDS["en"], scope=BotCommandScopeDefault())
-    logging.info("Команды зарегистрированы для en / ru / de")
+
+    # админские команды — видны только в чате с ADMIN_ID
+    admin_cmds = [
+        BotCommand(command="addcredits",    description="Добавить кредиты: /addcredits <id> <n>"),
+        BotCommand(command="removecredits", description="Снять кредиты: /removecredits <id> <n>"),
+        BotCommand(command="setcredits",    description="Установить кредиты: /setcredits <id> <n>"),
+        BotCommand(command="userinfo",      description="Инфо о юзере: /userinfo <id>"),
+        BotCommand(command="users",         description="Последние 20 пользователей"),
+    ]
+    await bot.set_my_commands(
+        _COMMANDS["ru"] + admin_cmds,
+        scope=BotCommandScopeChat(chat_id=config.ADMIN_ID),
+    )
+    logging.info("Команды зарегистрированы для en / ru / de + admin")
 
     dp = Dispatcher(storage=MemoryStorage())
-    dp.include_router(pay_router)   # payments первым — pre_checkout/successful_payment
+    dp.include_router(admin_router)  # admin первым — команды не пересекаются с остальными
+    dp.include_router(pay_router)
     dp.include_router(main_router)
 
     logging.info("Бот запущен. Ctrl+C для остановки.")

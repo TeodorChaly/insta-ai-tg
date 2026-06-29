@@ -23,21 +23,25 @@ _invoice_msg: dict[int, int] = {}
 # profiles = credits × 25  (сколько профилей можно просмотреть)
 
 CREDIT_PACKAGES: dict[str, dict] = {
-    "pkg_scout":  {"emoji": "🔍", "name": "Scout",  "credits": 16,  "profiles": 400,   "stars": 400,  "dollars": 6,  "tag": "+$1 bonus", "badge": ""},
-    "pkg_seeker": {"emoji": "🎯", "name": "Seeker", "credits": 45,  "profiles": 1125,  "stars": 1000, "dollars": 15, "tag": "−10%",       "badge": ""},
-    "pkg_hunter": {"emoji": "⚡", "name": "Hunter", "credits": 135, "profiles": 3375,  "stars": 2700, "dollars": 40, "tag": "−20%",       "badge": "  🔥"},
-    "pkg_elite":  {"emoji": "👑", "name": "Elite",  "credits": 270, "profiles": 6750,  "stars": 4700, "dollars": 70, "tag": "−30%",       "badge": ""},
+    "pkg_scout":  {"emoji": "🔍", "name": "Scout",  "credits": 16,  "base": 15, "bonus": 1,  "profiles": 400,   "stars": 400,  "dollars": 6,  "tag": "+$1 bonus", "badge": ""},
+    "pkg_seeker": {"emoji": "🎯", "name": "Seeker", "credits": 45,  "base": 45, "bonus": 0,  "profiles": 1125,  "stars": 1000, "dollars": 15, "tag": "−10%",       "badge": ""},
+    "pkg_hunter": {"emoji": "⚡", "name": "Hunter", "credits": 135, "base": 135,"bonus": 0,  "profiles": 3375,  "stars": 2700, "dollars": 40, "tag": "−20%",       "badge": "  🔥"},
+    "pkg_elite":  {"emoji": "👑", "name": "Elite",  "credits": 270, "base": 270,"bonus": 0,  "profiles": 6750,  "stars": 4700, "dollars": 70, "tag": "−30%",       "badge": ""},
 }
 
 
 def _plans_text(lang: str) -> str:
-    """Список планов для вставки в текстовое сообщение."""
     blocks = []
     for p in CREDIT_PACKAGES.values():
         profiles_fmt = f"{p['profiles']:,}"
-        line1 = f"{p['emoji']} <b>{p['name']}</b> — <b>${p['dollars']}</b>  <b>({p['tag']})</b>{p['badge']}"
-        line2 = f"<i>{t('pkg_plan_desc', lang, profiles=profiles_fmt)}</i>"
-        blocks.append(f"{line1}\n{line2}")
+        line1 = f"{p['emoji']} <b>{p['name']}</b> — <b>${p['dollars']}</b>  ({p['tag']}){p['badge']}"
+        if p["bonus"]:
+            line2 = t("pkg_plan_credits_bonus", lang,
+                      base=p["base"], bonus=p["bonus"], profiles=profiles_fmt)
+        else:
+            line2 = t("pkg_plan_credits", lang,
+                      credits=p["credits"], profiles=profiles_fmt)
+        blocks.append(f"{line1}\n<i>{line2}</i>")
     return "\n\n".join(blocks)
 
 

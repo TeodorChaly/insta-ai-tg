@@ -145,6 +145,8 @@ async def _run_inner(
     _last_update = [0.0]
 
     async def _update_progress():
+        if sess.stop_flag:
+            return
         import time as _t
         now = _t.monotonic()
         if now - _last_update[0] < 3:
