@@ -60,9 +60,11 @@ def apply(
         else:
             an = u.get("analysis") or {}
 
-            # если vision-анализ не прошёл — пропускаем профиль без блокировки
+            # если vision-анализ не прошёл — блокируем если gender-фильтр активен
             if not an:
-                pass
+                if gender != "any":
+                    stats["gender"] += 1
+                    reject = "no analysis (gender unknown)"
 
             elif an.get("is_account_commercial"):
                 stats["commercial"] += 1
